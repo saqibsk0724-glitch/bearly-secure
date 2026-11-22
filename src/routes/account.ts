@@ -50,10 +50,20 @@ export function createAccountRouter(deps: Dependencies): Router {
   const uploadTaxDocument = createUploadMiddleware("document");
 
   router.get("/account", (req, res) => {
-    const current = requireAuth(db, req, res);
-    if (!current) return;
-    res.type("html").send(renderAccountPage(current));
+  const current = requireAuth(db, req, res);
+
+  if (!current) {
+    return res.redirect("/login");
+  }
+
+  logEvent("account_accessed", {
+    userId: current.user.id,
+    email: current.user.email,
+    expiresAt: current.session.expires_at,
   });
+
+  res.type("html").send(renderAccountPage(current));
+});
 
   router.get("/account/totp", async (req, res) => {
     const current = requireRecentAuth(db, req, res, "/account/totp");
