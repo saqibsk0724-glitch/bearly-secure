@@ -66,6 +66,7 @@ export function createOrderFromCart(
           VALUES (?, 'pending', ?, ?, ?)
         `,
       )
+      
       .run(userId, totalCents, adminNotes, encryptedShippingDetails);
     const orderId = Number(result.lastInsertRowid);
     const insertItem = db.prepare(

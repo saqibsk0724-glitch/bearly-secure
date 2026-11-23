@@ -158,16 +158,19 @@ export function updateProduct(
   return findAnyProductById(db, productId);
 }
 
+
 export function searchProducts(db: DatabaseSync, query: string): Product[] {
   const sql = `
     SELECT id, name, description, image_path, price_cents, cost_cents, inventory_count, is_active, created_at
     FROM products
     WHERE is_active = 1
-      AND (name LIKE '%${query}%' OR description LIKE '%${query}%')
+      AND (name LIKE ? OR description LIKE ?)
     ORDER BY name
   `;
 
-  return db.prepare(sql).all() as Product[];
+  const pattern = `%${query}%`;
+
+  return db.prepare(sql).all(pattern, pattern) as Product[];
 }
 
 export function searchPublicProducts(
