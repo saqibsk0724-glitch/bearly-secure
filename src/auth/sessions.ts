@@ -73,10 +73,14 @@ export function getCurrentSession(
   const token = getCookie(cookieHeader, "session_id");
   if (!token) {
     return undefined;
+ 
   }
 
+  
+
   const storedSession = findStoredSession(db, fastHash(token));
-  if (!storedSession || new Date(storedSession.expires_at) <= new Date()) {
+  if (!storedSession || new Date(storedSession.expires_at) <= new Date() || 
+      storedSession.revoked_at != null) {
     return undefined;
   }
   const session = { ...storedSession, token };
