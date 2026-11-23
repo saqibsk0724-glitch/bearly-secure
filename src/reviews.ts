@@ -26,7 +26,7 @@ export function parseReviewBody(value: unknown): string | undefined {
     return undefined;
   }
 
-  return value;
+  return trimmed;
 }
 
 export function listReviewsForProduct(
