@@ -22,6 +22,8 @@ import {
   findOrderById,
   InsufficientInventoryError,
 } from "../orders/index.ts";
+import { csrfTokensMatch } from "../csrf.ts";
+
 
 export function sendFulfillmentTimeout(
   response: Response,
@@ -75,13 +77,28 @@ export function createCheckoutRouter(deps: Dependencies): Router {
       );
   });
 
-  router.post("/checkout", async (req, res) => {
-    const current = requireAuth(db, req, res);
-    if (!current) {
-      return;
-    }
 
-    let items = listCartItems(db, current.user.id);
+router.post("/checkout", async (req, res) => {
+  const current = requireAuth(db, req, res);
+  if (!current) {
+    return;
+  }
+
+  if (!csrfTokensMatch(
+    current.session.csrf_token,
+    req.body?.csrfToken,
+  )) {
+    sendErrorPage(
+      res,
+      403,
+      "Forbidden",
+      "Invalid CSRF token.",
+    );
+    return;
+  }
+
+  let items = listCartItems(db, current.user.id);
+
     if (items.length === 0) {
       res.redirect("/cart");
       return;
