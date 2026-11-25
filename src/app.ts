@@ -48,13 +48,24 @@ export function createApp(deps: Dependencies): express.Express {
   migrateSensitiveDataAtRest(deps.db, deps.keyring);
   const app = express();
 
-  app.use((_req, res, next) => {
-    const cspNonce = randomBytes(16).toString("base64");
-    res.locals.cspNonce = cspNonce;
 
-    res.set("X-Content-Type-Options" , "nosniff");
-    next();
-  });
+
+app.use((_req, res, next) => {
+  const cspNonce = randomBytes(16).toString("base64");
+  res.locals.cspNonce = cspNonce;
+
+  res.setHeader(
+    "Content-Security-Policy",
+    `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'`,
+
+  );
+
+  res.setHeader("X-Frame-Options" , "SAMEORIGIN");  
+
+  next();
+});
+
+
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "bearly-secure" });
