@@ -1,4 +1,13 @@
 import { Router, type Request, type Response } from "express";
+import {
+  clearTotpSecret,
+  createUser,
+  findUserByEmail,
+  findUserById,
+  getTotpSecret,
+  normalizeEmail,
+  updateUserPassword,
+} from "../auth/users.ts";
 import type { Dependencies } from "../dependencies.ts";
 import { safeReturnTo } from "../auth/accessControl.ts";
 import {

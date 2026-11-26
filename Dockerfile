@@ -18,7 +18,7 @@ COPY public ./public
 RUN mkdir -p data/uploads data/bulk-tax-documents \
     && chown -R node:node data
 
-COPY --chown=node:node data/uploads/mystery-shack-tax-exemption.pdf ./data/uploads/
+COPY --chown=node:node data/fixtures/mystery-shack-tax-exemption.pdf ./data/fixtures/
 
 USER node
 
