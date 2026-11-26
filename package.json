@@ -4,16 +4,19 @@
   "private": true,
   "description": "Intentionally vulnerable starter app for Boot.dev's Web Security course",
   "type": "module",
-  "scripts": {
-    "attacker-lab": "node scripts/attacker-lab.mjs",
-    "db:reset": "node src/db/seed.ts",
-    "dev": "node --watch src/main.ts",
-    "format": "oxfmt",
-    "lint": "oxfmt --check && oxlint",
-    "lint:fix": "npm run format && oxlint --fix",
-    "start": "node src/main.ts",
-    "typecheck": "tsc"
-  },
+  
+"scripts": {
+  "attacker-lab": "node scripts/attacker-lab.mjs",
+  "db:reset": "node --env-file-if-exists=.env src/db/seed.ts",
+  "dev": "node --env-file-if-exists=.env --watch src/main.ts",
+  "format": "oxfmt",
+  "lint": "oxfmt --check && oxlint",
+  "lint:fix": "npm run format && oxlint --fix",
+  "start": "node --env-file-if-exists=.env src/main.ts",
+  "audit:security": "npm audit --audit-level=high",
+  "typecheck": "tsc"
+},
+
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",

@@ -5,6 +5,7 @@ import {
   hashPassword,
   MAX_PASSWORD_LENGTH,
   verifyPassword,
+  passwordNeedsRehash
 } from "../auth/passwords.ts";
 import {
   createPasswordResetToken,
@@ -32,15 +33,8 @@ import {
   recordRecoveryAttempt,
   verifyAndConsumeBackupCode,
 } from "../auth/totpBackupCodes.ts";
-import {
-  clearTotpSecret,
-  createUser,
-  findUserByEmail,
-  findUserById,
-  getTotpSecret,
-  normalizeEmail,
-  
-} from "../auth/users.ts";
+
+
 import {
   renderLoginPage,
   renderMfaRecoveryPage,
@@ -78,7 +72,7 @@ export function createAuthRouter(deps: Dependencies): Router {
     "That verification attempt is no longer valid. Log in again.";
 
   router.get("/login", (req, res) => {
-    const returnTo = String(req.query.returnTo ?? "/");
+    const returnTo = safeReturnTo(req.query.returnTo);
     const error =
       req.query.verification === "restart"
         ? VERIFICATION_RESTART_MESSAGE
@@ -155,6 +149,10 @@ export function createAuthRouter(deps: Dependencies): Router {
       return;
     }
 
+    if (passwordNeedsRehash(user.password_hash)) {
+    await updateUserPassword(db, user.id, password);
+  }
+
     if (!verifyAndConsumeBackupCode(db, user.id, backupCode)) {
       recordRecoveryAttempt(db, email, user.id, false);
       logEvent("mfa_recovery_attempt", {
@@ -193,7 +191,7 @@ export function createAuthRouter(deps: Dependencies): Router {
   router.post("/login", async (req, res) => {
     const email = normalizeEmail(String(req.body.email ?? ""));
     const password = String(req.body.password ?? "");
-    const returnTo = String(req.body.returnTo ?? "/");
+    const returnTo = safeReturnTo(req.body.returnTo);
     const user = findUserByEmail(db, email);
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
@@ -209,6 +207,11 @@ export function createAuthRouter(deps: Dependencies): Router {
         .send(renderLoginPage("Invalid email or password", returnTo));
       return;
     }
+
+    if (passwordNeedsRehash(user.password_hash)) {
+  await updateUserPassword(db, user.id, password);
+}
+    
 
     const challengeToken = getTotpLoginChallengeToken(req.header("cookie"));
     abandonTotpLoginChallenge(db, req.header("cookie"));
@@ -246,7 +249,7 @@ export function createAuthRouter(deps: Dependencies): Router {
   });
 
   router.post("/login/totp", (req, res) => {
-    const requestedReturnTo = String(req.body.returnTo ?? "/");
+    const requestedReturnTo = safeReturnTo(req.body.returnTo);
     const challengeToken = getTotpLoginChallengeToken(req.header("cookie"));
     const challenge = challengeToken
       ? findTotpLoginChallenge(db, challengeToken)
@@ -313,7 +316,7 @@ export function createAuthRouter(deps: Dependencies): Router {
 
     setSessionCookie(res, session);
     clearTotpLoginChallengeCookie(res);
-    res.redirect(challenge.return_to);
+    res.redirect(safeReturnTo(challenge.return_to));
   });
 
   router.post("/signup", async (req, res) => {
@@ -524,13 +527,15 @@ export function createAuthRouter(deps: Dependencies): Router {
   });
 
   function verificationRestartLoginPath(returnTo: unknown = "/"): string {
-    const params = new URLSearchParams({ verification: "restart" });
-    const returnPath = String(returnTo);
-    if (returnPath !== "/") {
-      params.set("returnTo", returnPath);
-    }
-    return `/login?${params}`;
+  const params = new URLSearchParams({ verification: "restart" });
+  const returnPath = safeReturnTo(returnTo);
+
+  if (returnPath !== "/") {
+    params.set("returnTo", returnPath);
   }
+
+  return `/login?${params}`;
+}
 
   function renderTotpLoginPage(returnTo: string, error?: string): string {
     return renderTotpLoginView(safeReturnTo(returnTo), error);

@@ -212,7 +212,7 @@ router.post("/checkout", async (req, res) => {
       return;
     }
 
-    const pawPalReference = createPawPalReference(order.id, order.total_cents);
+    const pawPalReference = createPawPalReference(order.id, order.total_cents , deps.pawPalApiKey);
 
     logEvent("checkout_started", {
       userId: current.user.id,
