@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac , timingSafeEqual } from "node:crypto";
 
 
 
@@ -29,17 +29,42 @@ export type PawPalWebhookVerification =
   | { outcome: "malformed" }
   | { outcome: "approved"; orderId: number };
 
+
+
 export function verifyPawPalWebhook(
+  providedKey: string | undefined,
+  expectedKey: string,
   payload: unknown,
 ): PawPalWebhookVerification {
+  if (typeof providedKey !== "string") {
+    return { outcome: "unauthorized" };
+  }
+
+  const provided = Buffer.from(providedKey, "utf8");
+  const expected = Buffer.from(expectedKey, "utf8");
+
+  if (
+    provided.length !== expected.length ||
+    !timingSafeEqual(provided, expected)
+  ) {
+    return { outcome: "unauthorized" };
+  }
+
   const payloadRecord =
     typeof payload === "object" && payload !== null
       ? (payload as Record<string, unknown>)
       : {};
-  const orderId =
-    typeof payloadRecord.orderId === "number"
-      ? payloadRecord.orderId
-      : Number.NaN;
+
+  const orderId = payloadRecord.orderId;
+
+  if (
+    typeof orderId !== "number" ||
+    !Number.isSafeInteger(orderId) ||
+    orderId <= 0 ||
+    payloadRecord.status !== "approved"
+  ) {
+    return { outcome: "malformed" };
+  }
 
   return { outcome: "approved", orderId };
 }

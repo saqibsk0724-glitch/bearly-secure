@@ -11,6 +11,15 @@ const REDACTED_KEYS = new Set([
   "secret",
   "adminNotes",
   "storagePath",
+
+  // Personally identifiable information
+  "email",
+  "shippingName",
+  "shippingAddress",
+  "shippingCity",
+  "shippingRegion",
+  "shippingPostalCode",
+  "originalName",
 ]);
 
 const logPath = join(process.cwd(), "data", "bearly-secure.log");

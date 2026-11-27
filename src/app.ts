@@ -23,6 +23,7 @@ import { migrateSensitiveDataAtRest } from "./storage/migrations.ts";
 import express from "express";
 import helmet  from "helmet";
 import type { Response } from "express";
+import { createRateLimiter } from "./security/rateLimit.ts";
 
 
 
@@ -80,6 +81,12 @@ export function createApp(deps: Dependencies): express.Express {
     res.json({ ok: true, app: "bearly-secure" });
   });
 
+  app.use(createRateLimiter({
+    windowSeconds : 60,
+    max:100,
+  }),
+);
+
   app.use(express.static("public"));
 
 
@@ -102,6 +109,13 @@ export function createApp(deps: Dependencies): express.Express {
   app.use(express.json());
   app.use(createPawPalRouter(deps));
   app.use(validateRequestOrigin(deps.appOrigin));
+  app.use(
+    "/api/products",
+    createRateLimiter({
+      windowSeconds : 60,
+      max : 30,
+    })
+  )
   app.use(
   "/api/products",
   cors({
