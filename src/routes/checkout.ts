@@ -11,7 +11,7 @@ import {
   renderCheckoutPage,
   renderPawPalProcessingPage,
 } from "../views/checkout.ts";
-import { reserveAcornFulfillment } from "../integrations/acornFulfillment.ts";
+import { isAcornFulfillmentTimeout , reserveAcornFulfillmentWithTimeout } from "../integrations/acornFulfillment.ts";
 import {
   createPawPalCheckoutUrl,
   createPawPalReference,
@@ -155,9 +155,24 @@ router.post("/checkout", async (req, res) => {
       region: shippingRegion,
       postalCode: shippingPostalCode,
     };
-    await reserveAcornFulfillment(shippingDetails, {
-      delayMs: deps.acornFulfillmentDelayMs,
-    });
+   try {
+  await reserveAcornFulfillmentWithTimeout(shippingDetails, {
+    delayMs: deps.acornFulfillmentDelayMs,
+  });
+} catch (error) {
+  if (!isAcornFulfillmentTimeout(error)) {
+    throw error;
+  }
+
+  sendFulfillmentTimeout(
+    res,
+    items,
+    current.session.csrf_token,
+    current.user.display_name,
+  );
+
+  return;
+}
 
     items = listCartItems(db, current.user.id);
     if (items.length === 0) {

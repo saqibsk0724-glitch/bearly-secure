@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { protectSignupFromBots } from "../security/botRisk.ts";
 import {
   clearTotpSecret,
   createUser,
@@ -46,6 +47,7 @@ import {
 import {
   createRateLimiter,
   canonicalEmailKey,
+  clientIpKey
 } from "../security/rateLimit.ts";
 
 import { sendErrorPage } from "../errors.ts";
@@ -70,12 +72,18 @@ type AuthenticationLogFields = {
 };
 
 function logAuthenticationEvent(
-  _req: Request,
-  _res: Response,
+  req: Request,
+  res: Response,
   eventName: "login_attempt" | "password_reset_request",
   fields: AuthenticationLogFields,
 ): void {
-  logEvent(eventName, fields);
+  logEvent(eventName, {
+    ...fields,
+    requestId: res.locals.requestId,
+    sourceIp: clientIpKey(req),
+    userId: fields.userId ?? null,
+    outcome: fields.success ? "success" : "failure",
+  });
 }
 
 export function createAuthRouter(deps: Dependencies): Router {
@@ -388,7 +396,7 @@ const passwordResetAccountRateLimiter = createRateLimiter({
     res.redirect(safeReturnTo(challenge.return_to));
   });
 
-  router.post("/signup", async (req, res) => {
+  router.post("/signup", protectSignupFromBots ,  async (req, res) => {
     if (getCurrentSession(db, req.header("cookie"))) {
       res.redirect("/account");
       return;

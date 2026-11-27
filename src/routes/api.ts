@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Dependencies } from "../dependencies.ts";
 import { getCurrentSession  } from "../auth/sessions.ts";
+import { listPublicProducts } from "../products.ts";
 import {
   findOrderById,
   listAllOrders,
@@ -9,8 +10,11 @@ import {
   type Order,
   type OrderItem,
 } from "../orders/index.ts";
-import { listProducts, type Product } from "../products.ts";
+import {  type Product } from "../products.ts";
 import { findApiKey } from "../auth/apiKeys.ts";
+import { sendApiKeyQuotaExhausted , setApiKeyQuotaHeaders , toApiKeyQuotaResponse } from "./apiKeyQuota.ts";
+
+import { consumeApiKeyQuota } from "../auth/apiKeyUsage.ts";
 type ProductResponse = {
   id: number;
   name: string;
@@ -103,7 +107,10 @@ export function createApiRouter(deps: Dependencies): Router {
 
   router.get("/api/products", (_req, res) => {
     res.json({ 
-      products: listProducts(db).map(toProductResponse) 
+      products: listPublicProducts(
+        db, 
+        deps.maxPublicProductResults,
+      ).map(toProductResponse),
     });
   });
 
@@ -139,9 +146,19 @@ export function createApiRouter(deps: Dependencies): Router {
     created_at: order.created_at,
   }));
 
+  const quota = consumeApiKeyQuota(db, key.id);
+
+if (!quota.allowed) {
+  sendApiKeyQuotaExhausted(res, quota);
+  return;
+}
+
+setApiKeyQuotaHeaders(res, quota);
+
   res.json({
     integration: "Warehouse Fulfillment Integration",
     orders,
+    quota : toApiKeyQuotaResponse(quota),
   });
 });
 

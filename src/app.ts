@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes  , randomUUID} from "node:crypto";
 import cors from "cors"
 import { validateRequestOrigin } from "./csrf.ts";
 import type { Dependencies } from "./dependencies.ts";
@@ -24,6 +24,7 @@ import express from "express";
 import helmet  from "helmet";
 import type { Response } from "express";
 import { createRateLimiter } from "./security/rateLimit.ts";
+import { createLoadShedder } from "./security/loadShedding.ts";
 
 
 
@@ -31,6 +32,14 @@ import { createRateLimiter } from "./security/rateLimit.ts";
 export function createApp(deps: Dependencies): express.Express {
   migrateSensitiveDataAtRest(deps.db, deps.keyring);
   const app = express();
+  app.use((_req, res, next) => {
+  const requestId = randomUUID();
+
+  res.setHeader("X-Request-ID", requestId);
+  res.locals.requestId = requestId;
+
+  next();
+});
   app.set("trust proxy" , deps.trustedProxyHops)
 
   app.use((_req, res, next) => {
@@ -81,6 +90,13 @@ export function createApp(deps: Dependencies): express.Express {
     res.json({ ok: true, app: "bearly-secure" });
   });
 
+  const loadShedder = createLoadShedder({
+    maxConcurrent : 50,
+    retryAfterSeconds : 1,
+  });
+
+  app.use(loadShedder)
+
   app.use(createRateLimiter({
     windowSeconds : 60,
     max:100,
@@ -105,8 +121,18 @@ export function createApp(deps: Dependencies): express.Express {
     express.static("node_modules/@simplewebauthn/browser/dist/bundle"),
   );
 
-  app.use(express.urlencoded({ extended: false }));
-  app.use(express.json());
+  app.use(
+  express.urlencoded({
+    extended: false,
+    limit: deps.maxRequestBodyBytes,
+  }),
+);
+
+app.use(
+  express.json({
+    limit: deps.maxRequestBodyBytes,
+  }),
+);
   app.use(createPawPalRouter(deps));
   app.use(validateRequestOrigin(deps.appOrigin));
   app.use(
